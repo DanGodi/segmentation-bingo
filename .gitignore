@@ -40,6 +40,8 @@ htmlcov/
 mask/
 sat_images/
 converted_sat_images/
+printable_cards/
 image_feature_map.json
 interactive_segmentation.ipynb
 bingo_cards.json
+bingo_game_presentation.pdf
