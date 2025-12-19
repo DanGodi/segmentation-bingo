@@ -84,10 +84,14 @@ def compute_stats_from_files(mask_path: Path, scores_path: Path):
     )
 
 
-def process(mapping_path: Path, out_dir: Path, device: str = "gpu", resume=True, overlay_alpha=0.45):
+def process(mapping_path: Path, out_dir: Path, device: str = "gpu", resume=True, overlay_alpha=0.45, hf_token=None):
     mapping_path = Path(mapping_path)
     if not mapping_path.exists():
         raise FileNotFoundError(f"Mapping JSON not found: {mapping_path}")
+
+    # Set HF Token if provided
+    if hf_token:
+        os.environ["HF_TOKEN"] = hf_token
 
     with open(mapping_path, "r") as f:
         mapping = json.load(f)
