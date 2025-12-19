@@ -1,14 +1,13 @@
-# Satellite Bingo 🛰️
+# Segmentation Bingo 🛰️
 
-Generate and play a custom Bingo game using satellite imagery and AI-powered segmentation.
+Generate and play a custom Bingo game using custom imagery and AI-powered segmentation.
 
-This project allows you to turn a collection of satellite images into a fully playable Bingo game. It uses the **Segment Anything Model (SAM)** to detect features (like pools, cars, boats) and generates statistically "fair" Bingo cards based on the frequency of these features.
+This project allows you to turn a collection of images into a fully playable Bingo game. It uses the **Segment Anything Model (SAM)** to detect features (like pools, cars, boats) and generates statistically "fair" Bingo cards based on the frequency of these features.
 
 ## 🌟 Features
 
-*   **Automated Processing**: Resizes and converts raw satellite images.
 *   **Interactive Labeling**: Easy-to-use widget to tag features in your images.
-*   **AI Segmentation**: Uses Meta's SAM to detect objects and calculate coverage/counts.
+*   **AI Segmentation**: Uses Meta's SAM3 to detect objects and calculate coverage/counts.
 *   **Fair Card Generation**: Uses Monte Carlo simulations to ensure all Bingo cards have similar difficulty (expected turns to win).
 *   **Printable Assets**: Generates PDF/Image files for the Bingo cards.
 *   **Game Presentation**: Creates a slide deck (PDF) to "call" the game by revealing images one by one.
@@ -17,7 +16,7 @@ This project allows you to turn a collection of satellite images into a fully pl
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/DanGodi/satellite-bingo.git
+    git clone https://github.com/DanGodi/segmentation-bingo.git
     cd satellite-bingo
     ```
 
@@ -37,10 +36,10 @@ This project allows you to turn a collection of satellite images into a fully pl
 
 This project uses **SAM 3 (Segment Anything Model 3)** via the `samgeo` library. To use it, you must:
 
-1.  **Request Access**: Go to the [SAM 3 Hugging Face page](https://huggingface.co/facebook/sam2-hiera-large) (or the specific model used) and accept the license terms.
+1.  **Request Access**: Go to the [SAM 3 Hugging Face page](https://huggingface.co/facebook/sam3) (or the specific model used) and accept the license terms.
     *   *Note: Ensure you have access to the model checkpoints required by `samgeo`.*
 2.  **Get a Token**: Create a [Hugging Face Access Token](https://huggingface.co/settings/tokens) (Read permissions are sufficient).
-3.  **Configure Notebook**: In `notebooks/run_full_game.ipynb`, look for **Step 3** and paste your token into the `HF_TOKEN` variable:
+3.  **Configure Notebook**: In `run_full_game.ipynb`, look for **Step 3** and paste your token into the `HF_TOKEN` variable:
     ```python
     HF_TOKEN = "hf_..." 
     ```
@@ -49,9 +48,9 @@ This project uses **SAM 3 (Segment Anything Model 3)** via the `samgeo` library.
 
 The entire pipeline is orchestrated from a single Jupyter Notebook.
 
-1.  **Prepare Images**: Place your raw satellite images (JPG, PNG, TIF) in the `sat_images/` folder.
+1.  **Prepare Images**: Place your raw images (JPG, PNG, TIF) in a directory of your choice in the main directory and input folder path into the master notebook when prompted.
 2.  **Open the Master Notebook**:
-    Open `notebooks/run_full_game.ipynb` in VS Code or Jupyter Lab.
+    Open `run_full_game.ipynb`.
 3.  **Run the Steps**:
     *   **Step 1**: Process images (resizes them to `converted_sat_images/`).
     *   **Step 2**: Run the interactive labeler to select which features (e.g., "Pool", "Ship") are in which image.
@@ -62,7 +61,7 @@ The entire pipeline is orchestrated from a single Jupyter Notebook.
 
 ## 📂 Project Structure
 
-*   `notebooks/run_full_game.ipynb`: The main entry point for the project.
+*   `run_full_game.ipynb`: The main entry point for the project.
 *   `utils/`: Python modules for each step of the pipeline.
     *   `process_images.py`: Image preprocessing.
     *   `label_images.py`: Interactive labeling widget.
