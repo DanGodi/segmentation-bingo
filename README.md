@@ -52,7 +52,7 @@ The entire pipeline is orchestrated from a single Jupyter Notebook.
 2.  **Open the Master Notebook**:
     Open `run_full_game.ipynb`.
 3.  **Run the Steps**:
-    *   **Step 1**: Process images (resizes them to `converted_sat_images/`).
+    *   **Step 1**: Process images (resizes them to `converted_images/`).
     *   **Step 2**: Run the interactive labeler to select which features (e.g., "Pool", "Ship") are in which image.
     *   **Step 3**: Run the AI analysis. This will generate masks and stats in `mask/`.
     *   **Step 4**: Generate Bingo Cards. You can configure the difficulty and number of cards.
