@@ -9,29 +9,25 @@ from PIL import Image
 import re
 import textwrap
 
-# --- Configuration ---
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-STATS_PATH = PROJECT_ROOT / "mask" / "segmentation_stats.csv"
-CARDS_PATH = PROJECT_ROOT / "bingo_cards.json"
-IMAGES_DIR = PROJECT_ROOT / "converted_sat_images"
-OUTPUT_PDF = PROJECT_ROOT / "bingo_game_presentation.pdf"
-
 # --- Helper Functions ---
 
-def load_data():
+def load_data(stats_path, cards_path):
     """Loads stats and cards data."""
-    if not STATS_PATH.exists():
-        raise FileNotFoundError(f"Stats file not found: {STATS_PATH}")
-    if not CARDS_PATH.exists():
-        raise FileNotFoundError(f"Cards file not found: {CARDS_PATH}")
+    stats_path = Path(stats_path)
+    cards_path = Path(cards_path)
+    
+    if not stats_path.exists():
+        raise FileNotFoundError(f"Stats file not found: {stats_path}")
+    if not cards_path.exists():
+        raise FileNotFoundError(f"Cards file not found: {cards_path}")
         
-    df = pd.read_csv(STATS_PATH)
+    df = pd.read_csv(stats_path)
     df["n_objects"] = df["n_objects"].fillna(0).astype(int)
     
     # Pivot to get Image x Feature matrix
     counts_matrix = df.pivot_table(index="image", columns="feature", values="n_objects", fill_value=0)
     
-    with open(CARDS_PATH, "r") as f:
+    with open(cards_path, "r") as f:
         cards_data = json.load(f)
         
     return counts_matrix, cards_data
@@ -49,16 +45,12 @@ def parse_event(event_str, row_data):
             
     # 2. More than {n} {feat}s
     # Regex: More than (\d+) (.+)s
-    # Note: The generator added 's' at the end. We need to be careful matching the feature name.
-    # We'll try to match the feature name from the known columns.
     if event_str.startswith("More than "):
         match = re.match(r"More than (\d+) (.+)", event_str)
         if match:
             n = int(match.group(1))
             rest = match.group(2)
             # The generator added 's' to the end. Let's try removing it.
-            # But what if the feature itself ends in s?
-            # Let's iterate through known features to find the match.
             for col in row_data.index:
                 # Construct what the string WOULD be
                 if rest == f"{col}s":
@@ -87,18 +79,6 @@ def simulate_game(image_order, counts_matrix, cards_data):
         winners: list of (card_id, turn_index)
         card_progress: dict {card_id: [squares_left_at_turn_0, squares_left_at_turn_1, ...]}
     """
-    # Initialize card state (set of unfulfilled events)
-    # Actually, simpler: keep track of how many events are satisfied
-    
-    # Pre-calculate requirements for each card
-    # card_requirements[card_id] = [ (event_str, is_satisfied_bool) ]
-    # But is_satisfied depends on the image.
-    # Bingo rule: A square is marked if the CURRENT image satisfies the condition.
-    # Wait, standard Bingo: You mark the square if the CALLED item matches.
-    # In this game: "Show an image". Does the image satisfy "Contains Pool"?
-    # If yes, you mark that square.
-    # Once marked, it stays marked.
-    
     n_cards = len(cards_data)
     # Support variable card sizes: each card may have a different number of squares
     card_events = {c['card_id']: c['events'] for c in cards_data}
@@ -115,34 +95,43 @@ def simulate_game(image_order, counts_matrix, cards_data):
             # Update all cards
             for c in cards_data:
                 cid = c['card_id']
-                if cid in [w[0] for w in winners]:
-                    card_progress[cid].append(0)
-                    continue # Already won
+                events = c['events']
                 
                 # Check each event
-                for i, event in enumerate(card_events[cid]):
-                    if not card_status[cid][i]: # If not yet marked
-                        if parse_event(event, row):
+                for i, event_str in enumerate(events):
+                    if not card_status[cid][i]: # If not already marked
+                        if parse_event(event_str, row):
                             card_status[cid][i] = True
                             
                 # Record progress
-                needed = 10 - sum(card_status[cid])
-                card_progress[cid].append(needed)
+                squares_left = len(events) - sum(card_status[cid])
+                card_progress[cid].append(squares_left)
                 
-                if needed == 0:
-                    winners.append((cid, turn_idx + 1))
+                # Check win
+                if squares_left == 0:
+                    # Check if already won?
+                    # We want to know WHEN they won.
+                    # If they just won this turn, add to winners
+                    # But we might have multiple winners this turn.
+                    # Check if they were already a winner?
+                    # winners is list of (id, turn).
+                    already_won = any(w[0] == cid for w in winners)
+                    if not already_won:
+                        winners.append((cid, turn_idx + 1))
+                        
         else:
             # Image not in stats? Just record progress as same as last
             for cid in card_progress:
-                card_progress[cid].append(card_progress[cid][-1])
+                last_val = card_progress[cid][-1]
+                card_progress[cid].append(last_val)
                 
     return winners, card_progress
 
-def create_presentation():
+def create_presentation(stats_path, cards_path, images_dir, output_pdf):
     print("Generating Bingo Presentation...")
     
     # 1. Load Data
-    counts_matrix, cards_data = load_data()
+    counts_matrix, cards_data = load_data(stats_path, cards_path)
     all_images = list(counts_matrix.index)
     
     # 2. Shuffle Images
@@ -168,7 +157,7 @@ def create_presentation():
         print(f"Third place won on turn {third_place[1]}")
     
     # 4. Generate PDF
-    with PdfPages(OUTPUT_PDF) as pdf:
+    with PdfPages(output_pdf) as pdf:
         
         # --- Title Slide ---
         plt.figure(figsize=(11.69, 8.27))
@@ -181,11 +170,9 @@ def create_presentation():
         # --- Image Slides ---
         # We'll show images until the 3rd winner is found, plus a buffer?
         # Or just show all? Let's show all for now, or maybe limit to 50 if there are too many.
-        # User said "randomly decides an order... and displays them".
-        # Let's show all.
         
         for i, img_name in enumerate(all_images):
-            img_path = IMAGES_DIR / img_name
+            img_path = images_dir / img_name
             
             plt.figure(figsize=(11.69, 8.27))
             
@@ -202,17 +189,32 @@ def create_presentation():
                     plt.text(0.5, 0.5, f"Error loading image:\n{img_name}", ha='center')
                     plt.axis('off')
             else:
-                plt.text(0.5, 0.5, f"Image not found:\n{img_name}", ha='center')
-                plt.axis('off')
+                # Try to find it in the index (maybe path mismatch)
+                # The index in counts_matrix is the full path string from analyze_segment.py
+                # But here we are iterating names?
+                # Wait, counts_matrix index is "image" column from CSV.
+                # In analyze_segment.py: "image": str(img_path) (absolute path)
+                # So all_images contains absolute paths as strings.
+                
+                # Let's try to open it directly
+                try:
+                    img = Image.open(img_name)
+                    plt.imshow(img)
+                    plt.axis('off')
+                except Exception:
+                     plt.text(0.5, 0.5, f"Image not found:\n{img_name}", ha='center')
+                     plt.axis('off')
                 
             # Footer
-            plt.text(0.5, 0.02, f"Image ID: {img_name}", ha='center', fontsize=8, color='gray', transform=plt.gcf().transFigure)
+            plt.figtext(0.5, 0.02, "Satellite Bingo", ha='center', fontsize=10, color='gray')
             
             pdf.savefig()
             plt.close()
             
-            # Optimization: If we have a winner, maybe we mark it? 
-            # No, that spoils the fun. The PDF is the deck.
+            # Stop if we have 3 winners and passed some buffer?
+            # Let's stop after 3rd winner + 5 turns
+            if third_place and i > third_place[1] + 5:
+                break
             
         # --- Winner Reveal Slide ---
         plt.figure(figsize=(11.69, 8.27))
@@ -239,10 +241,10 @@ def create_presentation():
                 card_id, turn = place
                 # Draw bar
                 plt.bar(x[idx], heights[idx], color=colors[idx], width=0.8)
-                # Text
-                plt.text(x[idx], heights[idx] + 0.1, f"Card #{card_id}", ha='center', fontsize=20, weight='bold')
-                plt.text(x[idx], heights[idx] - 0.5, f"Won on\nTurn {turn}", ha='center', fontsize=14, color='white')
-                plt.text(x[idx], 0.2, labels[idx], ha='center', fontsize=16, weight='bold')
+                # Label
+                plt.text(x[idx], heights[idx] + 0.1, f"Card #{card_id}\n(Turn {turn})", 
+                         ha='center', fontsize=16, weight='bold')
+                plt.text(x[idx], heights[idx]/2, labels[idx], ha='center', color='white', weight='bold')
                 
         plt.xlim(-1, 3)
         plt.ylim(0, 4)
@@ -259,25 +261,30 @@ def create_presentation():
 
         # Calculate average progress
         all_progress = np.array([card_progress[c['card_id']] for c in cards_data], dtype=object)
-        # Convert to 2D numeric array - all card_progress lists should have equal length (we append each turn)
         try:
-            all_progress_numeric = np.vstack([np.array(p) for p in all_progress])
-            avg_needed = np.mean(all_progress_numeric, axis=0)
+            # Find max length
+            max_len = max(len(p) for p in card_progress.values())
+            # Pad with 0 (won)
+            padded_progress = []
+            for cid, prog in card_progress.items():
+                if len(prog) < max_len:
+                    prog = prog + [0] * (max_len - len(prog))
+                padded_progress.append(prog)
+            
+            avg_needed = np.mean(padded_progress, axis=0)
         except Exception:
-            # Fallback: compute average elementwise by padding with last value
-            max_len = max(len(p) for p in all_progress)
-            padded = np.array([np.pad(p, (0, max_len - len(p)), 'edge') for p in all_progress], dtype=float)
-            avg_needed = np.mean(padded, axis=0)
+            avg_needed = []
 
-        plt.plot(avg_needed, 'k--', label='Average Card', linewidth=2, alpha=0.5)
+        if len(avg_needed) > 0:
+            plt.plot(avg_needed, 'k--', label='Average Card', linewidth=2, alpha=0.5)
         
         if first_place:
-            pid = first_place[0]
-            plt.plot(card_progress[pid], 'r-', label=f'Winner (Card {pid})', linewidth=3)
+            cid = first_place[0]
+            plt.plot(card_progress[cid], label=f'Winner (Card {cid})', linewidth=3, color='gold')
             
         if second_place:
-            pid = second_place[0]
-            plt.plot(card_progress[pid], 'b-', label=f'2nd (Card {pid})', linewidth=2)
+            cid = second_place[0]
+            plt.plot(card_progress[cid], label=f'2nd (Card {cid})', linewidth=2, color='silver')
             
         # Y axis range depends on card sizes (use maximum squares per card)
         max_squares = max(len(c['events']) for c in cards_data)
@@ -295,28 +302,34 @@ def create_presentation():
         # Who had 1 square left when the winner won?
         if first_place:
             win_turn = first_place[1]
+            # Check progress at this turn (index win_turn)
             almost_winners = []
             for cid, prog in card_progress.items():
-                if cid == first_place[0]: continue
-                if prog[win_turn] == 1:
-                    almost_winners.append(cid)
-            
-            plt.figure(figsize=(11.69, 8.27))
-            plt.axis('off')
-            plt.text(0.5, 0.9, "The 'So Close!' Award", ha='center', fontsize=30, weight='bold')
-            plt.text(0.5, 0.8, f"(Cards with only 1 square left when Card #{first_place[0]} won)", ha='center', fontsize=16)
+                if len(prog) > win_turn:
+                    if prog[win_turn] == 1:
+                        almost_winners.append(cid)
             
             if almost_winners:
-                txt = ", ".join([f"#{cid}" for cid in almost_winners])
-                wrapped_txt = "\n".join(textwrap.wrap(txt, width=40))
-                plt.text(0.5, 0.5, wrapped_txt, ha='center', va='center', fontsize=24, color='blue')
-            else:
-                plt.text(0.5, 0.5, "No one else was close!", ha='center', fontsize=24)
+                plt.figure(figsize=(11.69, 8.27))
+                plt.text(0.5, 0.8, "Honorable Mentions", ha='center', fontsize=30, weight='bold')
+                plt.text(0.5, 0.6, f"Cards with only 1 square left\nwhen the winner won:", ha='center', fontsize=20)
                 
-            pdf.savefig()
-            plt.close()
+                # Wrap text
+                txt = ", ".join([f"#{c}" for c in almost_winners])
+                wrapped = textwrap.fill(txt, width=40)
+                plt.text(0.5, 0.4, wrapped, ha='center', fontsize=16, color='blue')
+                
+                plt.axis('off')
+                pdf.savefig()
+                plt.close()
 
-    print(f"Presentation saved to {OUTPUT_PDF}")
+    print(f"Presentation saved to {output_pdf}")
 
 if __name__ == "__main__":
-    create_presentation()
+    # --- Configuration ---
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent
+    STATS_PATH = PROJECT_ROOT / "mask" / "segmentation_stats.csv"
+    CARDS_PATH = PROJECT_ROOT / "bingo_cards.json"
+    IMAGES_DIR = PROJECT_ROOT / "converted_sat_images"
+    OUTPUT_PDF = PROJECT_ROOT / "bingo_game_presentation.pdf"
+    create_presentation(STATS_PATH, CARDS_PATH, IMAGES_DIR, OUTPUT_PDF)

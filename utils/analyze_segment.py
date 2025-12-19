@@ -57,7 +57,6 @@ def compute_stats_from_files(mask_path: Path, scores_path: Path):
             # compute area if transform available
             try:
                 tr = src.transform
-                # pixel_area = abs(a * e - b * d)
                 pixel_area = abs(tr.a * tr.e - tr.b * tr.d)
                 coverage_area_m2 = float(pixel_area * mask_pixels)
             except Exception:
@@ -271,10 +270,7 @@ def parse_args():
 def main():
     args = parse_args()
 
-    # Resolve paths relative to the repository root (script location), not the
-    # current working directory. This makes the script behave the same whether
-    # you run `python ./utils/analyze_segment.py` from the repo root or run it
-    # from inside the `utils/` folder.
+    # Resolve paths relative to the repository root (script location)
     repo_root = Path(__file__).resolve().parent.parent
 
     mapping_arg = Path(args.mapping)
