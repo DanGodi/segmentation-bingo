@@ -1,4 +1,4 @@
-# Segmentation Bingo 🛰️
+# Segmentation Bingo 🎟️
 
 Generate and play a custom Bingo game using custom imagery and AI-powered segmentation.
 
