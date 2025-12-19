@@ -17,7 +17,7 @@ This project allows you to turn a collection of images into a fully playable Bin
 1.  **Clone the repository:**
     ```bash
     git clone https://github.com/DanGodi/segmentation-bingo.git
-    cd satellite-bingo
+    cd segmentation-bingo
     ```
 
 2.  **Create a virtual environment (recommended):**
@@ -69,7 +69,7 @@ The entire pipeline is orchestrated from a single Jupyter Notebook.
     *   `create_cards.py`: Statistical card generation.
     *   `generate_printable_cards.py`: Card rendering.
     *   `generate_game_pdf.py`: Game presentation generation.
-*   `sat_images/`: Input folder for your raw images.
+*   `your_path/`: Input folder for your raw images.
 *   `converted_sat_images/`: Processed images used for the game.
 *   `mask/`: Output folder for segmentation masks and statistics.
 *   `printable_cards/`: Generated Bingo cards ready for printing.
