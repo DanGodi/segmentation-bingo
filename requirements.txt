@@ -7,7 +7,7 @@ pandas
 Pillow
 rasterio
 scikit-learn
-segment-geospatial
+segment-geospatial[samgeo3]
 sam3
 segment-anything
 torch
